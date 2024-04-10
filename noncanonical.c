@@ -111,8 +111,8 @@ int main(int argc, char** argv)
             }
             break;
         case A_RCV:
-            if(buf[0] == A){
-                estado = A_RCV;
+            if(buf[0] == C){
+                estado = C_RCV;
             }
             else if(buf[0]==F){
                 estado = FLAG_RCV;
@@ -122,8 +122,8 @@ int main(int argc, char** argv)
             }
             break;
         case C_RCV:
-            if(buf[0] == A){
-                estado = A_RCV;
+            if(buf[0] == BCC){
+                estado = BCC_OK;
             }
             else if(buf[0]==F){
                 estado = FLAG_RCV;
@@ -133,8 +133,8 @@ int main(int argc, char** argv)
             }
             break;
         case BCC_OK:
-            if(buf[0] == A){
-                estado = A_RCV;
+            if(buf[0] == F){
+                estado = STOP;
             }
             else if(buf[0]==F){
                 estado = FLAG_RCV;
@@ -144,17 +144,11 @@ int main(int argc, char** argv)
             }
             break;
         case STOP:
-            if(buf[0] == A){
-                estado = A_RCV;
-            }
-            else if(buf[0]==F){
-                estado = FLAG_RCV;
-            }
-            else{
-                estado = START;
-            }
+            estado = STOP;
+            printf("STOP atingido.\n");
             break;
         default:
+            printf("Default ativado, algo está incorreto.\n");
             break;
         }
 
