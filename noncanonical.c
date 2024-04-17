@@ -28,7 +28,7 @@ int main(int argc, char** argv)
 {
     int fd,c, res, estado=0;
     struct termios oldtio,newtio;
-    unsigned char buf[255];
+    unsigned char buf[255], bufw[4];
 
 
     if ( (argc < 2) ||
@@ -160,6 +160,19 @@ int main(int argc, char** argv)
     
     printf("\n");
     printf("STOP atingido.\n");
+
+    bufw[0] = 0x5c; //FLAG
+	bufw[1] = 0x03; //AD
+	bufw[2] = 0x06; //C
+	bufw[3] = 0x04; //BCC
+	bufw[4] = 0x5c; //F
+  
+
+    /*testing*/
+    bufw[5] = '\n';
+
+    res = write(fd,bufw,5);
+    printf("%d bytes written\n", res);
 
     /*
     O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião
