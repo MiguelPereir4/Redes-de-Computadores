@@ -16,19 +16,27 @@
 #define A_RCV 2
 #define C_RCV 3
 #define BCC_OK 4
-#define STOP_ 5
+#define BCC1_OK8 5
+#define BCC1_OKC 6
+#define STOP_ 7
 
 #define F 0x5c
 #define A 0x03
 #define C 0x08
 #define BCC A^C
 
+#define C_8 0x80
+#define C_C 0xc0
+#define BCC1_8 A^C_8
+#define BCC1_C A^C_C
+#define C_RR_S0 0x11
+#define C_RR_S1 0x01
 
 int main(int argc, char** argv)
 {
     int fd,c, res, estado=0;
     struct termios oldtio,newtio;
-    unsigned char buf[255], bufw[4];
+    unsigned char buf[255], bufw[4], bufm[255];
 
 
     if ( (argc < 2) ||
@@ -163,7 +171,7 @@ int main(int argc, char** argv)
 
     bufw[0] = 0x5c; //FLAG
 	bufw[1] = 0x03; //AD
-	bufw[2] = 0x06; //C
+	bufw[2] = 0x06; //C_UA
 	bufw[3] = 0x04; //BCC
 	bufw[4] = 0x5c; //F
   
@@ -173,6 +181,90 @@ int main(int argc, char** argv)
 
     res = write(fd,bufw,5);
     printf("%d bytes written\n", res);
+
+    estado = 0;
+
+    while(estado != STOP_){
+        read(fd, bufm, 1);
+        printf("%X ", bufm[0]);
+        switch (estado)
+        {
+        case START:
+            if(bufm[0] == F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case FLAG_RCV:
+            if(bufm[0] == A){
+                estado = A_RCV;
+            }
+            else if(bufm[0]==F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case A_RCV:
+            if(bufm[0] == C_8){
+                estado = C_RCV;
+            }
+            else if(bufm[0]==F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case C_RCV:
+            if(bufm[0] == BCC1_8){
+                estado = BCC1_OK8;
+            }
+            else if(bufm[0]==BCC1_C){
+                estado = BCC1_OKC;
+            }
+            else if(bufm[0]==F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case BCC1_OK8:
+            if(bufm[0] == F){
+                estado = STOP_;
+            }
+            else if(bufm[0]==F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case BCC1_OKC:
+            if(bufm[0] == F){
+                estado = STOP_;
+            }
+            else if(bufm[0]==F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case STOP_:
+            estado = STOP_;
+            printf("STOP atingido.\n");
+            break;
+        default:
+            printf("Default ativado, algo está incorreto.\n");
+            break;
+        }
+
+    }
 
     /*
     O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião
