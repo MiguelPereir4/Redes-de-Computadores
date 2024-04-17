@@ -16,7 +16,7 @@
 #define A_RCV 2
 #define C_RCV 3
 #define BCC_OK 4
-#define STOP 5
+#define STOP_ 5
 
 #define F 0x5c
 #define A 0x03
@@ -32,6 +32,7 @@ int main(int argc, char** argv)
 
 
     if ( (argc < 2) ||
+    
          ((strcmp("/dev/ttyS0", argv[1])!=0) &&
           (strcmp("/dev/ttyS1", argv[1])!=0) )) {
         printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
@@ -79,6 +80,8 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
+    fflush(stdout);
+
     /*while (STOP==FALSE) {       /* loop for input */
         //res = read(fd,buf,1);   /* returns after 5 chars have been input */
         //buf[res]=0;               /* so we can printf... */
@@ -86,9 +89,10 @@ int main(int argc, char** argv)
         //if (buf[0]=='z') STOP=TRUE;
     //}
 
-    while(estado != STOP){
+
+    while(estado != STOP_){
         read(fd, buf, 1);
-        printf("%X", buf);
+        printf("%X ", buf[0]);
         switch (estado)
         {
         case START:
@@ -134,7 +138,7 @@ int main(int argc, char** argv)
             break;
         case BCC_OK:
             if(buf[0] == F){
-                estado = STOP;
+                estado = STOP_;
             }
             else if(buf[0]==F){
                 estado = FLAG_RCV;
@@ -143,8 +147,8 @@ int main(int argc, char** argv)
                 estado = START;
             }
             break;
-        case STOP:
-            estado = STOP;
+        case STOP_:
+            estado = STOP_;
             printf("STOP atingido.\n");
             break;
         default:
@@ -154,7 +158,8 @@ int main(int argc, char** argv)
 
     }
     
-
+    printf("\n");
+    printf("STOP atingido.\n");
 
     /*
     O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião
