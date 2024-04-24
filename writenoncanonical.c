@@ -27,24 +27,25 @@
 volatile int STOP=FALSE;
 
 
-void mens()
+void mens(int fd)
 {
-	unsigned char bufm[8];
+	unsigned char bufm[9];
 	int res1;
 	
 	bufm[0] = 0x5c; //FLAG
 	bufm[1] = 0x03; //AD
 	bufm[2] = 0x80; //C_Dados
 	
-	bufm[3] = buf[1]^buf[2]; //BCC1
+	bufm[3] = bufm[1]^bufm[2]; //BCC1
 	bufm[4] = 0x11; //Dados
 	bufm[5] = 0x00;
-	bufm[6] = buf[4]^buf[5]; //BCC2
-	bufm[7] = 0x5c; //F
+	bufm[6] = 0x69;
+	bufm[7] = bufm[4]^bufm[5]^bufm[6]; //BCC2
+	bufm[8] = 0x5c; //F
 
-	bufm[8] = '\n';
+	bufm[9] = '\n';
 
-    res1 = write(fd,bufw,8);
+    res1 = write(fd,bufm,9);
     printf("%d bytes written\n", res1);
 
 	
@@ -202,7 +203,7 @@ int main(int argc, char** argv)
 	printf("STOP atingido.\n");
 	
 	
-	mens();
+	mens(fd);
 	
     sleep(1);
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
