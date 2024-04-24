@@ -18,7 +18,8 @@
 #define BCC_OK 4
 #define BCC1_OK8 5
 #define BCC1_OKC 6
-#define STOP_ 7
+#define DATA 7
+#define STOP_ 8
 
 #define F 0x5c
 #define A 0x03
@@ -32,11 +33,119 @@
 #define C_RR_S0 0x11
 #define C_RR_S1 0x01
 
+void dados(int fd)
+{
+    int estado = 0, i=0, jaux=4;
+    unsigned char bufm[255], bufaux[255],aux, BCC2;
+
+    while(estado != STOP_){
+        read(fd, bufm, 1);
+        bufaux[i] = bufm[0];
+        i++;
+        printf("%X ", bufm[0]);
+        switch (estado)
+        {
+        case START:
+            if(bufm[0] == F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case FLAG_RCV:
+            if(bufm[0] == A){
+                estado = A_RCV;
+            }
+            else if(bufm[0]==F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case A_RCV:
+            if(bufm[0] == C_8){
+                estado = C_RCV;
+            }
+            else if(bufm[0]==F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case C_RCV:
+            if(bufm[0] == BCC1_8){
+                estado = BCC1_OK8;
+            }
+            else if(bufm[0]==BCC1_C){
+                estado = BCC1_OKC;
+            }
+            else if(bufm[0]==F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case BCC1_OK8:
+            if(bufm[0] == F){
+                estado = STOP_;
+            }
+            else{
+                estado = DATA;
+            }
+            break;
+        case BCC1_OKC:
+            if(bufm[0] == F){
+                estado = STOP_;
+            }
+            else{
+                estado = DATA;
+            }
+            break;
+        case DATA:
+            if(bufm[0] == F){
+                estado = STOP_;
+            }
+            break;
+        case STOP_:
+            estado = STOP_;
+            break;
+        default:
+            printf("Default ativado, algo está incorreto.\n");
+            break;
+        }
+    } 
+
+    i--;
+    printf("FLAG RECEBIDA: %X \n", bufaux[i]);
+    printf("BCC2 RECEBIDO: %X \n", bufaux[i-1]);
+    aux = bufaux[i-1];
+
+    while(jaux<i)
+    {
+        if(jaux==5) {
+            BCC2 = bufaux[jaux-1]^bufaux[jaux];
+        }
+        else {BCC2 = bufaux[jaux-1] ^ BCC2;}
+        jaux++;
+
+    }
+
+    printf("BCC CAlCUlADO: %X \n", BCC2);
+
+
+}
+
+
+
 int main(int argc, char** argv)
 {
     int fd,c, res, estado=0;
     struct termios oldtio,newtio;
-    unsigned char buf[255], bufw[4], bufm[255];
+    unsigned char buf[255], bufw[4];
 
 
     if ( (argc < 2) ||
@@ -148,9 +257,6 @@ int main(int argc, char** argv)
             if(buf[0] == F){
                 estado = STOP_;
             }
-            else if(buf[0]==F){
-                estado = FLAG_RCV;
-            }
             else{
                 estado = START;
             }
@@ -182,7 +288,7 @@ int main(int argc, char** argv)
     res = write(fd,bufw,5);
     printf("%d bytes written\n", res);
 
-    estado = 0;
+    /*estado = 0;
 
     while(estado != STOP_){
         read(fd, bufm, 1);
@@ -264,7 +370,9 @@ int main(int argc, char** argv)
             break;
         }
 
-    }
+    }*/
+
+    dados(fd);
 
     /*
     O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião
