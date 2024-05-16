@@ -33,10 +33,12 @@
 #define C_RR_S0 0x11
 #define C_RR_S1 0x01
 
+unsigned char bufaux[255];
+
 void dados(int fd)
 {
     int estado = 0, i=0, jaux=4;
-    unsigned char bufm[255], bufaux[255],aux, BCC2;
+    unsigned char bufm[255],aux, BCC2;
 
     while(estado != STOP_){
         read(fd, bufm, 1);
@@ -136,6 +138,28 @@ void dados(int fd)
 
     printf("BCC CAlCUlADO: %X \n", BCC2);
 
+    confirmacao(fd);
+    printf("Sai da conf\n");
+
+
+}
+
+void confirmacao(int fd)
+{
+    unsigned char bufconf[6]; int res;
+
+    bufconf[0] = bufaux[0];
+    bufconf[1] = bufaux[1];
+
+    if(bufaux[2] == C_8) bufconf[2] = 0x11;
+    if(bufaux[2] == C_C) bufconf[2] = 0x01;
+
+    bufconf[3] = bufconf[1] ^bufconf[2];
+    bufconf[4] = bufconf[0];
+    bufconf[5]="\n";
+
+    res = write(fd, bufconf,5);
+    printf("\nFoi dada a confirmação\n");
 
 }
 
@@ -198,13 +222,6 @@ int main(int argc, char** argv)
     printf("New termios structure set\n");
 
     fflush(stdout);
-
-    /*while (STOP==FALSE) {       /* loop for input */
-        //res = read(fd,buf,1);   /* returns after 5 chars have been input */
-        //buf[res]=0;               /* so we can printf... */
-        //printf(":%s:%d\n", buf, res);
-        //if (buf[0]=='z') STOP=TRUE;
-    //}
 
 
     while(estado != STOP_){
@@ -288,91 +305,11 @@ int main(int argc, char** argv)
     res = write(fd,bufw,5);
     printf("%d bytes written\n", res);
 
-    /*estado = 0;
 
-    while(estado != STOP_){
-        read(fd, bufm, 1);
-        printf("%X ", bufm[0]);
-        switch (estado)
-        {
-        case START:
-            if(bufm[0] == F){
-                estado = FLAG_RCV;
-            }
-            else{
-                estado = START;
-            }
-            break;
-        case FLAG_RCV:
-            if(bufm[0] == A){
-                estado = A_RCV;
-            }
-            else if(bufm[0]==F){
-                estado = FLAG_RCV;
-            }
-            else{
-                estado = START;
-            }
-            break;
-        case A_RCV:
-            if(bufm[0] == C_8){
-                estado = C_RCV;
-            }
-            else if(bufm[0]==F){
-                estado = FLAG_RCV;
-            }
-            else{
-                estado = START;
-            }
-            break;
-        case C_RCV:
-            if(bufm[0] == BCC1_8){
-                estado = BCC1_OK8;
-            }
-            else if(bufm[0]==BCC1_C){
-                estado = BCC1_OKC;
-            }
-            else if(bufm[0]==F){
-                estado = FLAG_RCV;
-            }
-            else{
-                estado = START;
-            }
-            break;
-        case BCC1_OK8:
-            if(bufm[0] == F){
-                estado = STOP_;
-            }
-            else if(bufm[0]==F){
-                estado = FLAG_RCV;
-            }
-            else{
-                estado = START;
-            }
-            break;
-        case BCC1_OKC:
-            if(bufm[0] == F){
-                estado = STOP_;
-            }
-            else if(bufm[0]==F){
-                estado = FLAG_RCV;
-            }
-            else{
-                estado = START;
-            }
-            break;
-        case STOP_:
-            estado = STOP_;
-            printf("STOP atingido.\n");
-            break;
-        default:
-            printf("Default ativado, algo está incorreto.\n");
-            break;
-        }
-
-    }*/
 
     dados(fd);
+
+    printf("Dados foram recebidos e conf enviada\n");
 
     /*
     O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião
@@ -380,5 +317,6 @@ int main(int argc, char** argv)
     sleep(1);
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
+    printf("Programa fechado.\n");
     return 0;
 }
