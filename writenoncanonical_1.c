@@ -33,7 +33,37 @@
 #define ESCAPE_ESCAPE 0x7d
 
 volatile int STOP=FALSE;
+unsigned char bufw[4], buf[255];
 
+void connect(int fd)
+{
+    int res;
+    
+    bufw[0] = 0x5c; //FLAG
+	bufw[1] = 0x03; //A
+	bufw[2] = 0x07; //C
+	bufw[3] = buf[1]^buf[2]; //BCC
+	bufw[4] = 0x5c; //F
+    bufw[5] = '\n';
+
+    res = write(fd,bufw,5);
+    printf("%d bytes written\n", res);
+}
+
+void disconnect(int fd)
+{
+    int res;
+    
+    bufw[0] = 0x5c; //FLAG
+	bufw[1] = 0x03; //A
+	bufw[2] = 0x0A; //C
+	bufw[3] = buf[1]^buf[2]; //BCC
+	bufw[4] = 0x5c; //F
+    bufw[5] = '\n';
+
+    res = write(fd,bufw,5);
+    printf("%d bytes written\n", res);
+}
 
 //ChatGPT
 void byte_stuffing(const unsigned char *input, int length, unsigned char *output, int *stuffed_length, unsigned char *aux) {
@@ -85,23 +115,39 @@ void mens(int fd)
     bufm[8] = 0x5d;
     bufm[9] = 0x14;
 	bufm[10] = 0x69;
-    for(b=4;b < 13-3; b++)
+    for(b=5;b <= 13-3; b++)
     {
         if(b==5) {
             bufm[11] = bufm[b-1]^bufm[b];
         }
-        else {bufm[11] = bufm[b-1] ^ bufm[11];}
+        else {bufm[11] = bufm[b] ^ bufm[11];}
     }
 	bufm[12] = 0x5c; //F
 	bufm[13] = '\n';
 
+    printf("----BCC---- %X\n", bufm[11]);
+
     strcpy(aux, bufm);
+
+    for(pos = 0; pos < 255; pos++)
+    {
+        printf("%X ", aux[pos]);
+    }
+
+    printf("\n\n");
 
     byte_stuffing(bufm, 13, stuffed_bufm, &stuffed_length, aux);
 
+    for(pos = 0; pos < 255; pos++)
+    {
+        printf("%X ", aux[pos]);
+    }
+
+    printf("\n\n");
+
     for(b=4; b<=255; b++)
     {
-        if(a<=stuffed_length)
+        if(a<=stuffed_length-1)
         {
             aux[b] = stuffed_bufm[a];
             a++;
@@ -116,7 +162,7 @@ void mens(int fd)
     printf("\n");
 
 
-    res1 = write(fd, bufm, 255);
+    res1 = write(fd, aux, 255);
     printf("%d bytes written\n", res1);
     
     printf("Vai fazer a rece\n");
@@ -209,14 +255,10 @@ void rec_RR(int fd){
 
 }
 
-
-
-
 int main(int argc, char** argv)
 {
     int fd,c, res, estado =0;
     struct termios oldtio,newtio;
-    unsigned char bufw[4], buf[255];
     int i, sum = 0, speed = 0;
 
     if ( (argc < 2) ||
@@ -270,19 +312,7 @@ int main(int argc, char** argv)
     printf("New termios structure set\n");
 
 
-	bufw[0] = 0x5c; //FLAG
-	bufw[1] = 0x03; //AD
-	bufw[2] = 0x08; //C
-	bufw[3] = buf[1]^buf[2]; //BCC
-	bufw[4] = 0x5c; //F
-  
-  
-
-    /*testing*/
-    bufw[5] = '\n';
-
-    res = write(fd,bufw,5);
-    printf("%d bytes written\n", res);
+	connect(fd);
 
 
     /*
@@ -362,6 +392,8 @@ int main(int argc, char** argv)
 	
 	
 	mens(fd);
+
+    disconnect(fd);
 	
     sleep(1);
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
