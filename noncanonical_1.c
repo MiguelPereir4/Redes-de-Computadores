@@ -23,8 +23,10 @@
 
 #define F 0x5c
 #define A 0x03
-#define C 0x08
+#define C 0x07
 #define BCC A^C
+#define C_DISC 0x0A
+#define BCC_DISC A^C_DISC
 
 #define C_8 0x80
 #define C_C 0xc0
@@ -38,13 +40,31 @@
 #define ESCAPE_ESCAPE 0x7d
 
 unsigned char bufaux[255];
+unsigned char buf[255], bufw[4];
 
+void UA(int fd)
+{
+    int res;
+    
+    bufw[0] = 0x5c; //FLAG
+	bufw[1] = 0x03; //A
+	bufw[2] = 0x06; //C_UA
+	bufw[3] = 0x04; //BCC
+	bufw[4] = 0x5c; //F
+  
+
+    /*testing*/
+    bufw[5] = '\n';
+
+    res = write(fd,bufw,5);
+    printf("%d bytes written\n", res);
+}
 
 //ChatGPT
 void byte_destuffing(const unsigned char *input, int length, unsigned char *output, int *destuffed_length) {
     int i, j = 0;
     printf("Inicio destuffing\n");
-    for (i = 0; i < length; i++) {
+    for (i = 4; i < length; i++) {
         if (input[i] == ESCAPE) {
             if (input[i + 1] == ESCAPE_FLAG) {
                 output[j++] = F;
@@ -65,8 +85,8 @@ void dados(int fd)
 {
 
 
-    int estado = 0, i=0, jaux=4;
-    unsigned char bufm[255],aux, BCC2;
+    int estado = 0, i=0, jaux=5, pos, a=0, b=0;
+    unsigned char bufm[255], aux[255], BCC2, BCC2_r;
 
     printf("Vai entrar no while\n");
 
@@ -79,7 +99,6 @@ void dados(int fd)
         switch (estado)
         {
         case START:
-            printf("Entrou no START\n");
             if(bufm[0] == F){
                 estado = FLAG_RCV;
             }
@@ -88,7 +107,6 @@ void dados(int fd)
             }
             break;
         case FLAG_RCV:
-            printf("Entrou no FLAG_RCV\n");
             if(bufm[0] == A){
                 estado = A_RCV;
             }
@@ -100,7 +118,6 @@ void dados(int fd)
             }
             break;
         case A_RCV:
-            printf("Entrou no A_RCV\n");
             if((bufm[0] == C_8) || (bufm[0] == C_C) ){
                 estado = C_RCV;
             }
@@ -112,7 +129,6 @@ void dados(int fd)
             }
             break;
         case C_RCV:
-            printf("Entrou no C_RCV\n");
             if(bufm[0] == BCC1_8){
                 estado = BCC1_OK8;
             }
@@ -127,7 +143,6 @@ void dados(int fd)
             }
             break;
         case BCC1_OK8:
-            printf("Entrou no BCC1_OK8\n");
             if(bufm[0] == F){
                 estado = STOP_;
             }
@@ -136,7 +151,6 @@ void dados(int fd)
             }
             break;
         case BCC1_OKC:
-            printf("Entrou no BCC1_OKC\n");
             if(bufm[0] == F){
                 estado = STOP_;
             }
@@ -162,26 +176,64 @@ void dados(int fd)
     i--;
     printf("FLAG RECEBIDA: %X \n", bufaux[i]);
     printf("BCC2 RECEBIDO: %X \n", bufaux[i-1]);
-    aux = bufaux[i-1];
+    BCC2_r = bufaux[i-1];
+
+    strcpy(aux, bufaux);
+
+    for(pos = 0; pos < 255; pos++)
+    {
+        printf("%X ", aux[pos]);
+    }
+
+    printf("\n\n");
 
     // Destuff the data
     unsigned char destuffed_buf[255];
     int destuffed_length;
     byte_destuffing(bufaux, i, destuffed_buf, &destuffed_length);
 
-    while(jaux<i)
+    for(pos = 0; pos < destuffed_length; pos++)
     {
-        if(jaux==5) {
-            BCC2 = bufaux[jaux-1]^bufaux[jaux];
-        }
-        else {BCC2 = bufaux[jaux-1] ^ BCC2;}
-        jaux++;
-
+        printf("%X ", destuffed_buf[pos]);
     }
 
-    printf("BCC CAlCUlADO: %X \n", BCC2);
+    printf("\n\n");
 
-    confirmacao(fd);
+    for(b=4; b<=255; b++)
+    {
+        if(a<=destuffed_length-1)
+        {
+            aux[b] = destuffed_buf[a];
+            a++;
+        }
+    }
+
+    for(b=4+destuffed_length; b<255; b++)
+    {
+        aux[b]=0;
+    }
+
+    aux[4+destuffed_length] = aux[0];
+    
+    for(pos = 0; pos < 255; pos++)
+    {
+        printf("%X ", aux[pos]);
+    }
+
+    for(jaux=5;jaux < (3+destuffed_length); jaux++)
+    {
+        if(jaux==5) {
+            BCC2 = aux[jaux-1]^aux[jaux];
+        }
+        else {BCC2 = aux[jaux] ^ BCC2;}
+    }
+    printf("\nBCC CAlCUlADO: %X \n", BCC2);
+
+    if(BCC2 == BCC2_r)
+    {
+        confirmacao(fd);
+    }
+    else reject(fd);
     printf("Sai da conf\n");
 
 
@@ -206,14 +258,30 @@ void confirmacao(int fd)
 
 }
 
+void reject(int fd)
+{
+    unsigned char bufrej[6]; int res;
+
+    bufrej[0] = bufaux[0];
+    bufrej[1] = bufaux[1];
+
+    if(bufaux[2] == C_8) bufrej[2] = 0x15;
+    if(bufaux[2] == C_C) bufrej[2] = 0x05;
+
+    bufrej[3] = bufrej[1] ^bufrej[2];
+    bufrej[4] = bufrej[0];
+    bufrej[5]="\n";
+
+    res = write(fd, bufrej,5);
+    printf("\nFoi dada a rejeição\n");
+
+}
 
 
 int main(int argc, char** argv)
 {
     int fd,c, res, estado=0;
     struct termios oldtio,newtio;
-    unsigned char buf[255], bufw[4];
-
 
     if ( (argc < 2) ||
     
@@ -335,24 +403,82 @@ int main(int argc, char** argv)
     printf("\n");
     printf("STOP atingido.\n");
 
-    bufw[0] = 0x5c; //FLAG
-	bufw[1] = 0x03; //AD
-	bufw[2] = 0x06; //C_UA
-	bufw[3] = 0x04; //BCC
-	bufw[4] = 0x5c; //F
-  
-
-    /*testing*/
-    bufw[5] = '\n';
-
-    res = write(fd,bufw,5);
-    printf("%d bytes written\n", res);
-
-
+    UA(fd);
 
     dados(fd);
 
     printf("Dados foram recebidos e conf enviada\n");
+    
+    tcflush(fd, TCIOFLUSH);
+
+    estado = 0;
+
+    while(estado != STOP_){
+        read(fd, buf, 1);
+        printf("%X ", buf[0]);
+        switch (estado)
+        {
+        case START:
+            if(buf[0] == F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case FLAG_RCV:
+            if(buf[0] == A){
+                estado = A_RCV;
+            }
+            else if(buf[0]==F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case A_RCV:
+            if(buf[0] == C_DISC){
+                estado = C_RCV;
+            }
+            else if(buf[0]==F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case C_RCV:
+            if(buf[0] == BCC_DISC){
+                estado = BCC_OK;
+            }
+            else if(buf[0]==F){
+                estado = FLAG_RCV;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case BCC_OK:
+            if(buf[0] == F){
+                estado = STOP_;
+            }
+            else{
+                estado = START;
+            }
+            break;
+        case STOP_:
+            estado = STOP_;
+            printf("STOP atingido.\n");
+            break;
+        default:
+            printf("Default ativado, algo está incorreto.\n");
+            break;
+        }
+
+    }
+
+    printf("\n----DISCONECTADO----\n");
 
     /*
     O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião
