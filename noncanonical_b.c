@@ -50,24 +50,23 @@ typedef struct linkLayer{
 } linkLayer;
 
 unsigned char bufaux[255];
-unsigned char buf_R[255], bufr[4];
+unsigned char buf_R[255], bufr[6];
 int fd_R;
 
 void UA_R()
 {
+    printf("Entrou no UA\n");
+    
     int res;
     
     bufr[0] = 0x5c; //FLAG
 	bufr[1] = 0x03; //A
 	bufr[2] = 0x06; //C_UA
-	bufr[3] = 0x04; //BCC
+	bufr[3] = 0x05; //BCC
 	bufr[4] = 0x5c; //F
-  
-
-    /*testing*/
     bufr[5] = '\n';
 
-    res = write(fd_R,bufr,5);
+    res = write(fd_R,bufr,7);
     printf("%d bytes written\n", res);
 }
 
@@ -78,7 +77,7 @@ void disconnect_r()
     bufr[0] = 0x5c; //FLAG
 	bufr[1] = 0x03; //A
 	bufr[2] = 0x0A; //C
-	bufr[3] = buf_R[1]^buf_R[2]; //BCC
+	bufr[3] = bufr[1]^bufr[2]; //BCC
 	bufr[4] = 0x5c; //F
     bufr[5] = '\n';
 
@@ -292,10 +291,39 @@ int llopen_R(struct linkLayer ll)
     printf("New termios structure set READ\n");
 
     int estado =0;
+    struct termios oldtio,newtio;
 
     fd_R = open(ll.serialPort, O_RDWR | O_NOCTTY );
-
     if(fd_R<0){printf("Error\n");return-1;}
+
+    if (tcgetattr(fd_R,&oldtio) == -1) { /* save current port settings */
+        perror("tcgetattr");
+        exit(-1);
+    }
+
+    bzero(&newtio, sizeof(newtio));
+    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+    newtio.c_iflag = IGNPAR;
+    newtio.c_oflag = 0;
+
+    /* set input mode (non-canonical, no echo,...) */
+    newtio.c_lflag = 0;
+
+    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
+    newtio.c_cc[VMIN]     = 1;   /* blocking read until 5 chars received */
+
+    /*
+    VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a
+    leitura do(s) próximo(s) caracter(es)
+    */
+
+
+    tcflush(fd_R, TCIOFLUSH);
+
+    if (tcsetattr(fd_R,TCSANOW,&newtio) == -1) {
+        perror("tcsetattr");
+        exit(-1);
+    }
 
     fflush(stdout);
 
